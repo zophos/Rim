@@ -1,0 +1,28 @@
+Rim  -- Ruby IMage processing library
+
+NISHI Takao <zophos@koka-in.org>
+
+= What's Rim
+
+Rim is Ruby IMage processing library for Cygwin.
+
+= Requirements
+
+* Ruby 1.8 or higher
+* OpenCV 2.0.0a or higher
+* NArray
+* Ruby/GSL (optional)
+
+* for webcam access on Windows
+** Visual Studio 2008 (express edition)
+** Windows SDK v7
+** ewclib
+
+= Copying
+
+Copyright (c) 2010 NISHI Takao <zophos@koka-in.org> All rights reserved.
+This is free software with ABSOLUTELY NO WARRANTY.
+
+You can redistribute it and/or modify it under the terms of Ruby's licence.
+
+Comments, suggestions, patches and beers are welcome.
