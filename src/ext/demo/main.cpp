@@ -10,7 +10,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 //
-// Rim::Image::LabelInfo
+// Rim::Box2D
 //
 VALUE rb_rim_box2d_alloc(VALUE klass)
 {
@@ -202,10 +202,21 @@ VALUE rb_rim_cv_find_courner_harris(VALUE self,
 }
 
 
-VALUE rb_rim_find_squire_vertex(VALUE self)
+VALUE rb_rim_find_squire_vertex(VALUE self,
+                                VALUE v_min_complexity,
+                                VALUE v_max_complexity,
+                                VALUE v_area_ratio,
+                                VALUE v_poly_approx)
 {
+
     if(!IsNArray(self))
         rb_raise(rb_eTypeError,"Odd reciever was gaven.");
+
+    double min_complexity=NUM2DBL(v_min_complexity);
+    double max_complexity=NUM2DBL(v_max_complexity);
+    double area_ratio=NUM2DBL(v_area_ratio);
+    double poly_approx=NUM2DBL(v_poly_approx);
+
 
     IplImage *src=rb_rim_image2ipl(self);
     
@@ -222,7 +233,7 @@ VALUE rb_rim_find_squire_vertex(VALUE self)
     double area=fabs(cvContourArea(contours));
     double arclen=cvArcLength(contours,CV_WHOLE_SEQ,1);
     double val=arclen*arclen/area;
-    if(val<15.0||val>25.0){
+    if(val<min_complexity||val>max_complexity){
         cvReleaseMemStorage(&storage);
         rb_rim_ipl_free(src);
         return Qnil;
@@ -230,8 +241,7 @@ VALUE rb_rim_find_squire_vertex(VALUE self)
 
     CvBox2D minrect=cvMinAreaRect2(contours);
     double minrect_area=minrect.size.width*minrect.size.height;
-    val=(minrect_area-area)/minrect_area;
-    if(val>minrect_area*0.5){
+    if(area/minrect_area<area_ratio){
         cvReleaseMemStorage(&storage);
         rb_rim_ipl_free(src);
         return Qnil;
@@ -255,7 +265,7 @@ VALUE rb_rim_find_squire_vertex(VALUE self)
     contours=cvApproxPoly(contours,
                           sizeof(CvContour),NULL,
                           CV_POLY_APPROX_DP,
-                          3);
+                          poly_approx);
     if(contours->total!=4){
         cvReleaseMemStorage(&storage);
         rb_rim_ipl_free(src);
@@ -279,10 +289,8 @@ VALUE rb_rim_find_squire_vertex(VALUE self)
                     rb_funcall(cRimPoint2D,
                                idRimPoint2D_new,
                                2,
-                               INT2FIX(pt.x),
-                               INT2FIX(pt.y)));
-
-        
+                               rb_float_new((float)pt.x),
+                               rb_float_new((float)pt.y)));
     }
 
     cvReleaseMemStorage(&storage);
@@ -390,6 +398,67 @@ VALUE rb_rim_cv_binarize_adaptive(int argc,VALUE *argv,VALUE self)
 }
 
 
+VALUE rb_rim_cv_warp_perspective(int argc,VALUE *argv,VALUE self)
+{
+    VALUE mat,dst;
+    struct NARRAY *na_mat;
+    int mat_type=0;
+    
+    if(!IsNArray(self))
+        rb_raise(rb_eTypeError,"Odd reciever was gaven.");
+    
+    if(rb_scan_args(argc,argv,"11",&mat,&dst)==2){
+        if(!IsNArray(dst))
+            rb_raise(rb_eTypeError,"2nd argument must be NArray");
+    }
+
+
+    if(!IsNArray(mat))
+        rb_raise(rb_eTypeError,"1st argument must be NArray");
+
+    GetNArray(mat,na_mat);
+    if(na_mat->rank!=2 || na_mat->shape[0]!=3 || na_mat->shape[1]!=3)
+        rb_raise(rb_eTypeError,"argument shapes must be 3x3");
+
+    switch(na_mat->type){
+    case NA_SFLOAT:
+        mat_type=CV_32FC1;
+        break;
+    case NA_DFLOAT:
+        mat_type=CV_64FC1;
+        break;
+    default:
+        rb_raise(rb_eTypeError,"argument type must be FLOAT");
+    }
+
+
+    //
+    // create rotation matrix
+    //
+    CvMat *rot3x3=cvCreateMatHeader(3,3,mat_type);
+    cvSetData(rot3x3,
+              na_mat->ptr,
+              na_sizeof[na_mat->type]*na_mat->shape[0]);
+
+    IplImage *src_img=rb_rim_image2ipl_ref(self);
+
+    //
+    // create dst image
+    //
+    IplImage *dst_img=cvCloneImage(src_img);
+    cvWarpPerspective(src_img,dst_img,rot3x3);
+
+    VALUE dst=rb_rim_ipl2image(dst_img);
+
+
+    rb_rim_ipl_free(dst_img);
+    rb_rim_ipl_free(src_img);
+    cvReleaseMatHeader(&rot3x3);
+    
+    return dst;
+}
+
+
 extern "C" void Init_rim_demo()
 {
     VALUE mRim=rb_define_module("Rim");
@@ -441,7 +510,7 @@ extern "C" void Init_rim_demo()
     rb_define_method(cRimImage,
                      "find_squire_vertex",
                      (VALUE(*)(...))rb_rim_find_squire_vertex,
-                     0);
+                     4);
 
     rb_define_method(cRimImage,
                      "fill_hole",
@@ -452,4 +521,9 @@ extern "C" void Init_rim_demo()
                      "cv_binarize_adaptive",
                      (VALUE(*)(...))rb_rim_cv_binarize_adaptive,
                      -1);
+    
+    rb_define_method(cRimImage,
+                     "cv_warp_perspective",
+                     (VALUE(*)(...))rb_rim_cv_warp_perspective,
+                     1);
 }

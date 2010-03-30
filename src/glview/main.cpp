@@ -9,7 +9,10 @@ typedef struct{
     long draw;
     float viewing_angle;
     float focal_point[3];
-    float fixation_point[3];
+    float z_axis[3];
+    float y_axis[3];
+    float mat_diffuse[3];
+    float padding[2];
 } GlViewDrawingPrams;
 
 class GlViewEnv{
@@ -17,6 +20,7 @@ public:
     GLubyte *bits;
     GLuint width;
     GLuint height;
+    GLfloat aspect_ratio;
     size_t buf_size;
     ShMemutexHandle shm;
     ShMemutexHandle cmd;
@@ -26,6 +30,7 @@ public:
     GlViewEnv()
         :width(640),
          height(480),
+         aspect_ratio(640.0/480.0),
          buf_size(0),
          shm(NULL),
          cmd(NULL),
@@ -64,6 +69,10 @@ public:
         this->shm=shmemutex_open(this->common_name,this->buf_size,0);
         this->cmd=shmemutex_open(cmd_name,1024,0);
 
+        float w=(float)this->width;
+        float h=(float)this->height;
+        this->aspect_ratio=w/h;
+
         return this;
     }
 };
@@ -85,14 +94,14 @@ void drawxyzaxis(double w,int col)
 {
     glBegin(GL_LINES);
     glColor3ub(col,0,0);
-    glVertex3d(-w,  0, 0);
-    glVertex3d( w,  0, 0);
+    glVertex3d(-w,0,0);
+    glVertex3d(w,0,0);
     glColor3ub(0,col,0);
-    glVertex3d( 0, -w, 0);
-    glVertex3d( 0,  w, 0);
+    glVertex3d(0,-w,0);
+    glVertex3d(0,w,0);
     glColor3ub(0,0,col);
-    glVertex3d( 0, 0, -w);
-    glVertex3d( 0, 0,  w);
+    glVertex3d(0,0,-w);
+    glVertex3d(0,0,w);
     glEnd();
 }
 
@@ -146,28 +155,29 @@ void on_display(void)
     if(env.drawing_params.draw){
 
         glPushMatrix();
+
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         
-        glMaterialfv(GL_FRONT,GL_DIFFUSE,MAT_DIFFUSE);
-        glMaterialfv(GL_FRONT,GL_AMBIENT,MAT_AMBIENT);
-        glMaterialfv(GL_FRONT,GL_SPECULAR,MAT_SPECULAR);
-        glMaterialfv(GL_FRONT,GL_SHININESS,MAT_SHININESS);
-        
-        
         glViewport(0,0,env.width,env.height);
         gluPerspective(env.drawing_params.viewing_angle,
-                       640.0/480.0,
-                       200.0,600.0);
+                       env.aspect_ratio,
+                       10.0,1200.0);
         gluLookAt(env.drawing_params.focal_point[0],
                   env.drawing_params.focal_point[1],
                   env.drawing_params.focal_point[2],
-                  env.drawing_params.fixation_point[0],
-                  env.drawing_params.fixation_point[1],
-                  env.drawing_params.fixation_point[2],
-                  0,1,0);
-        
+                  env.drawing_params.z_axis[0],
+                  env.drawing_params.z_axis[1],
+                  env.drawing_params.z_axis[2],
+                  env.drawing_params.y_axis[0],
+                  env.drawing_params.y_axis[1],
+                  env.drawing_params.y_axis[2]);
+
         //drawxyzaxis(120.0,.75);
+        glMaterialfv(GL_FRONT,GL_DIFFUSE,env.drawing_params.mat_diffuse);
+        glMaterialfv(GL_FRONT,GL_AMBIENT,MAT_AMBIENT);
+        glMaterialfv(GL_FRONT,GL_SPECULAR,MAT_SPECULAR);
+        glMaterialfv(GL_FRONT,GL_SHININESS,MAT_SHININESS);
         glutSolidTeapot(20.0);
         
         glPopMatrix();
@@ -185,6 +195,9 @@ void on_display(void)
 
 void on_key(unsigned char key,int x,int y)
 {
+    //
+    // Press ESC to quit
+    //
     if(key==27){
         env.~GlViewEnv();
         exit(0);
@@ -255,7 +268,7 @@ int main(int argc, char **argv)
                         GLUT_RGBA |
                         GLUT_DEPTH);
     
-    glutCreateWindow(argv[0]);
+    glutCreateWindow(env.common_name);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);

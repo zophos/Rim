@@ -99,7 +99,7 @@ module Rim
         #
 
         @@default_viewer=
-            '/cygdrive/c/Users/zophos/Documents/work/rim/rimshot/Debug/rimshot.exe -n %n -w %w -h %h'
+            '/cygdrive/c/Users/zophos/Documents/work/rim/src/rimshot/Debug/rimshot.exe -n %n -w %w -h %h'
 
         def self.default_viewer
             @@default_viewer
