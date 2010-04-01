@@ -98,7 +98,7 @@ class Marker
                                    [10.0,20.0],
                                    [20.0,20.0]])
     
-    XY_PALNE_Z=35.0
+    XY_PALNE_Z=-35.0
     XZ_PLANE_Y=-35.0
     
     #
@@ -107,16 +107,16 @@ class Marker
     ROT90=NMatrix.to_na([[0.0,1.0],[-1.0,0.0]])
     ROT180=NMatrix.to_na([[-1.0,0.0],[0.0,-1.0]])
     ROT270=NMatrix.to_na([[0.0,-1.0],[1.0,0.0]])
-    
 
-    def initialize(vertex,courner,img)
+    def initialize(id,vertex,courner,img,work)
+        @id=id
         _get_perspective_matrix(vertex)
         _mapping(courner)
-        _sampling(img)
+        _sampling(img,work)
         _count_sample
         @rot=0
     end
-    attr_reader :world,:camera,:cog,:is_xy,:is_xz,:rot
+    attr_reader :id,:world,:camera,:cog,:is_xy,:is_xz,:rot
 
     def size
         if(@world.dim>1)
@@ -304,8 +304,8 @@ class Marker
         @world=NVector.to_na(world)
     end
 
-    def _sampling(img)
-        src=img.cv_warp_perspective(@rot3x3)
+    def _sampling(img,work)
+        img.cv_warp_perspective(@rot3x3,work)
 
         sampling_points=SAMPLING_POINTS[].add!(30.0).div!(@magnify)
         sampling_points.add!(@origin)
@@ -318,7 +318,7 @@ class Marker
                 rx=(pt[0]-1)..(pt[0]+1)
                 ry=(pt[1]-1)..(pt[1]+1)
                 begin
-                    @sample[x,y]=1 if src[0,rx,ry].eq(0).sum>4
+                    @sample[x,y]=1 if work[0,rx,ry].eq(0).sum>4
                 rescue
                 end
                 i+=1
@@ -376,16 +376,25 @@ class Marker
             end
         end
 
-        @world[2,true]=@world[1,true]
+        @world[2,true]=@world[1,true].mul!(-1.0)
         @world[1,true]=XZ_PLANE_Y
     end
 end
 
 
 class GlCmd<NArray
-    def self.new(shm)
+    def self.finalize(shm)
+        proc{|id|
+            shm.close if shm
+        }
+    end
+
+    def self.new(*shm_opts)
+        shm=ShMemutex.new(*shm_opts)
         obj=self.sfloat(16)
         obj.instance_variable_set(:@pipe,shm)
+        ObjectSpace.define_finalizer(obj,self.finalize(shm))
+
         obj
     end
 
@@ -420,57 +429,84 @@ trap(:SIGINT){
     exit
 }
 
-camera=Rim.open_camera(1,WIDTH.to_i,HEIGHT.to_i,15.0)
-#camera=Rim.load('0.bmp')
+camera=nil
+
+if(ARGV[0])
+    camera=Rim.load(ARGV[0])
+else
+    camera=Rim.open_camera(1,WIDTH.to_i,HEIGHT.to_i,15.0)
+end
 
 term=Rim::Terminal.open(camera.width,
                         camera.height,
                         'RimAr',
                         './glview/Debug/glview.exe -n %n -w %w -h %h')
-cmd=GlCmd.new(ShMemutex.new('RimAr_cmd',1024))
+cmd=GlCmd.new('RimAr_cmd',1024)
 
+#
+# recyclable buffers
+#
 h=NMatrix.float(4,3)
-
-t1=Rim::Image.float(WIDTH.to_i,HEIGHT.to_i,1)
+t1=Rim::Image.float(camera.width,camera.height)
 t2=t1[]
+gray=Rim::Image.new(camera.width,camera.height,1)
+bin=gray[]
+warp=gray[]
 
-bin=camera.to_gray
+planes=[]
+
+#
+# debug buffers
+#
+dbg=nil
+dbg_b=nil
+dbg_g=nil
+dbg_r=nil
 
 term_dbg=Rim::Terminal.open(camera.width,
                             camera.height,
                             'Debug')
+
+if(defined?(term_dbg) && term_dbg)
+    dbg=Rim::Image.new(camera.width,camera.height,3)
+end
+
 loop{
     $stderr.write("#{Time.now}: ")
-    camera.capture
+    camera.capture unless ARGV[0]
     
     cmd.clear
 
-    gray=camera.to_gray
-    bin=gray.cv_binarize_ohtsu(bin)
+    camera.cv_bgr2gray(gray)
+    gray.cv_binarize_ohtsu(bin)
     
-    dbg=bin.add_plane([bin,bin])
-    dbg[1..2,false]=0
-    dbg_b=dbg[0..0,false]
-    dbg_g=dbg[1..1,false]
-    
-    planes=[]
+    if(defined?(term_dbg) && term_dbg)
+        dbg[0..0,false]=bin
+        dbg[1..2,false]=0
+        dbg_b=dbg[0..0,false]
+        dbg_g=dbg[1..1,false]
+        dbg_r=dbg[2..2,false]
+    end
+
+    planes.clear
     
     label=bin.labeling(512)
     label.labelinfo.each{|l|
+        label_mask=label.eq(l.id)
+
         #
         # check the area is marker area.
         # When that is marker area, get each vertex coordinates.
         #
-        bin.fill!(0)[label.eq(l.id)]=255
+        bin.fill!(0)[label_mask]=255
         vertex=bin.find_squire_vertex(15.0,50.0,0.5,3.0)
         next unless vertex
         
-        label_mask=label.eq(l.id)
 
         if(defined?(term_dbg) && term_dbg)
             dbg_b[label_mask]=0
-            dbg[0..0,false]=dbg_b
             dbg_g[label_mask]=255
+            dbg[0..0,false]=dbg_b
             dbg[1..1,false]=dbg_g
         end
 
@@ -481,7 +517,7 @@ loop{
         next unless courners.size>=3
         
         begin
-            marker=Marker.new(vertex,courners,bin)
+            marker=Marker.new(l.id,vertex,courners,bin,warp)
 
             if(marker.size>=3)
                 planes.push(marker) 
@@ -492,7 +528,6 @@ loop{
                 end
             end
         rescue
-            #$stderr.write($!.to_s+"\n  "+$@.join("\n  ")+"\n")
         end
 
         if(planes.size==2)
@@ -500,7 +535,17 @@ loop{
                 break
             else
                 planes.sort!{|a,b| a.probability<=>b.probability }
-                planes.shift
+                marker=planes.shift
+
+                if(defined?(term_dbg) && term_dbg)
+                    label_mask=label.eq(marker.id)
+                    dbg_b[label_mask]=0
+                    dbg_g[label_mask]=0
+                    dbg_r[label_mask]=255
+                    dbg[0..0,false]=dbg_b
+                    dbg[1..1,false]=dbg_g
+                    dbg[2..2,false]=dbg_r
+                end
             end
         end
     }
@@ -561,7 +606,7 @@ loop{
         # liner fit using GSL
         #
         (h11,cov,chisq,status)=GSL::MultiFit.linear(x.to_gm_view,y.to_gv_view)
-        h11=h11.to_nv
+        h11=h11.to_nv_ref
         
         h[true,0]=h11[0..3]
         h[true,1]=h11[4..7]
@@ -641,7 +686,7 @@ loop{
     alpha=NMath::sqrt(NVector.to_na(q[0..2,2].to_a.flatten)**2)
     q.div!(alpha)
     opt_axis=NVector.to_na(q[0..2,2].to_a.flatten)
-    opt_axis.mul!(-1.0) if opt_axis[2]<0.0
+    opt_axis.mul!(-1.0) if opt_axis[2]>0.0
     
     z_axis=opt_axis[].mul!(-1.0)
 
@@ -653,7 +698,7 @@ loop{
     x_axis.sbt!(opt_axis*(x_axis*opt_axis))
     focal_length=NMath.sqrt(x_axis**2)
 
-    x_axis.div!(-focal_length)
+    x_axis.div!(focal_length)
 
     #
     # View Angle
@@ -670,12 +715,11 @@ loop{
                              z_axis[2]*x_axis[0]-z_axis[0]*x_axis[2],
                              z_axis[0]*x_axis[1]-z_axis[1]*x_axis[0]])
 
-
     #
     # send perspective parameters to OpenGL
     #
     camera.show(term)
-    cmd.send(view_angle,focal_point,z_axis,y_axis,TEAPOT_COLOR)
+    cmd.send(view_angle,focal_point,opt_axis,y_axis,TEAPOT_COLOR)
 
     $stderr<< <<_EOS_
 :

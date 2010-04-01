@@ -6,7 +6,7 @@
 #include <narray.h>
 #include <cv.h>
 #include "../rim_ipl.h"
-//#include <iostream>
+#include <iostream>
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -400,10 +400,10 @@ VALUE rb_rim_cv_binarize_adaptive(int argc,VALUE *argv,VALUE self)
 
 VALUE rb_rim_cv_warp_perspective(int argc,VALUE *argv,VALUE self)
 {
-    VALUE mat,dst;
+    VALUE mat,dst=NULL;
     struct NARRAY *na_mat;
     int mat_type=0;
-    
+
     if(!IsNArray(self))
         rb_raise(rb_eTypeError,"Odd reciever was gaven.");
     
@@ -411,15 +411,19 @@ VALUE rb_rim_cv_warp_perspective(int argc,VALUE *argv,VALUE self)
         if(!IsNArray(dst))
             rb_raise(rb_eTypeError,"2nd argument must be NArray");
     }
-
-
+    else
+        dst=NULL;
+    
+     //
+     // create rotation matrix
+     //
     if(!IsNArray(mat))
         rb_raise(rb_eTypeError,"1st argument must be NArray");
-
+    
     GetNArray(mat,na_mat);
     if(na_mat->rank!=2 || na_mat->shape[0]!=3 || na_mat->shape[1]!=3)
-        rb_raise(rb_eTypeError,"argument shapes must be 3x3");
-
+         rb_raise(rb_eTypeError,"argument shapes must be 3x3");
+    
     switch(na_mat->type){
     case NA_SFLOAT:
         mat_type=CV_32FC1;
@@ -430,25 +434,26 @@ VALUE rb_rim_cv_warp_perspective(int argc,VALUE *argv,VALUE self)
     default:
         rb_raise(rb_eTypeError,"argument type must be FLOAT");
     }
-
-
-    //
-    // create rotation matrix
-    //
     CvMat *rot3x3=cvCreateMatHeader(3,3,mat_type);
     cvSetData(rot3x3,
               na_mat->ptr,
               na_sizeof[na_mat->type]*na_mat->shape[0]);
-
+     
+    //
+    // create perspective warp image
+    //
     IplImage *src_img=rb_rim_image2ipl_ref(self);
+    IplImage *dst_img=NULL;    
+    if(dst)
+        dst_img=rb_rim_image2ipl_ref(dst);
+    else
+        dst_img=cvCloneImage(src_img);
 
-    //
-    // create dst image
-    //
-    IplImage *dst_img=cvCloneImage(src_img);
     cvWarpPerspective(src_img,dst_img,rot3x3);
 
-    VALUE dst=rb_rim_ipl2image(dst_img);
+
+    if(!dst)
+        dst=rb_rim_ipl2image(dst_img);
 
 
     rb_rim_ipl_free(dst_img);
@@ -525,5 +530,5 @@ extern "C" void Init_rim_demo()
     rb_define_method(cRimImage,
                      "cv_warp_perspective",
                      (VALUE(*)(...))rb_rim_cv_warp_perspective,
-                     1);
+                     -1);
 }

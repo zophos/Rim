@@ -29,7 +29,10 @@ VALUE rb_rim_cv_CvtColor(int argc,VALUE *argv,VALUE self,int code)
         if((src->rank!=dst->rank)||(src->type!=dst->type))
             rb_raise(rb_eTypeError,"NArray type or rank miss matched.");
 
-        for(int i=0;i<src->rank;i++){
+        //
+        // check shape except number of channels
+        //
+        for(int i=1;i<src->rank;i++){
             if((src->shape[i]!=dst->shape[i]))
                 rb_raise(rb_eTypeError,"NArray shape miss matched.");
         }
@@ -73,6 +76,22 @@ VALUE rb_rim_cv_hls2bgr(int argc,VALUE *argv,VALUE self)
     return rb_rim_cv_CvtColor(argc,argv,self,CV_HLS2BGR);
 }
 
+
+//
+// Rim::Image#cv_bgr2gray(dst=nil)
+//
+VALUE rb_rim_cv_bgr2gray(int argc,VALUE *argv,VALUE self)
+{
+    return rb_rim_cv_CvtColor(argc,argv,self,CV_BGR2GRAY);
+}
+
+//
+// Rim::Image#cv_gray2bgr(dst=nil)
+//
+VALUE rb_rim_cv_gray2bgr(int argc,VALUE *argv,VALUE self)
+{
+    return rb_rim_cv_CvtColor(argc,argv,self,CV_GRAY2BGR);
+}
 
 
 //
@@ -150,6 +169,16 @@ void rb_cvfilters_init(VALUE mRim,VALUE cRimImage)
     rb_define_method(cRimImage,
                      "cv_hls2bgr",
                      (VALUE(*)(...))rb_rim_cv_hls2bgr,
+                     -1);
+
+    rb_define_method(cRimImage,
+                     "cv_bgr2gray",
+                     (VALUE(*)(...))rb_rim_cv_bgr2gray,
+                     -1);
+
+    rb_define_method(cRimImage,
+                     "cv_gray2bgr",
+                     (VALUE(*)(...))rb_rim_cv_gray2bgr,
                      -1);
 
 
