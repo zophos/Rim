@@ -299,12 +299,26 @@ VALUE rb_rim_find_squire_vertex(VALUE self,
     return ary;
 }
 
-VALUE rb_rim_fill_hole(VALUE self)
+VALUE rb_rim_fill_hole(int argc,VALUE *argv,VALUE self)
 {
+    VALUE v_dst;
+    IplImage *src,*dst;
+
     if(!IsNArray(self))
         rb_raise(rb_eTypeError,"Odd reciever was gaven.");
 
-    IplImage *src=rb_rim_image2ipl(self);
+    src=rb_rim_image2ipl(self);
+
+    if(rb_scan_args(argc,argv,"01",&v_dst)==1){
+        if(!IsNArray(v_dst))
+            rb_raise(rb_eTypeError,"1st argument must be NArray");
+        dst=rb_rim_image2ipl_ref(v_dst);
+    }
+    else{
+        v_dst=NULL;
+        dst=src;
+    }
+
 
     CvMemStorage *storage=cvCreateMemStorage(0);
     CvSeq *contours=0;
@@ -316,19 +330,24 @@ VALUE rb_rim_fill_hole(VALUE self)
                    CV_RETR_EXTERNAL,
                    CV_CHAIN_APPROX_NONE);
 
-    cvDrawContours(src,
+    cvDrawContours(dst,
                    contours,
                    CV_RGB(255,255,255),
                    CV_RGB(255,255,255),
                    0,
                    CV_FILLED);
 
-    VALUE ret=rb_rim_ipl2image(src);
 
     cvReleaseMemStorage(&storage);
+
+    if(v_dst)
+        rb_rim_ipl_free(dst);
+    else
+        v_dst=rb_rim_ipl2image(dst);
+
     rb_rim_ipl_free(src);
 
-    return ret;
+    return v_dst;
 }
 
 
@@ -520,7 +539,7 @@ extern "C" void Init_rim_demo()
     rb_define_method(cRimImage,
                      "fill_hole",
                      (VALUE(*)(...))rb_rim_fill_hole,
-                     0);
+                     -1);
 
     rb_define_method(cRimImage,
                      "cv_binarize_adaptive",

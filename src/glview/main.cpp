@@ -1,18 +1,29 @@
 #include <windows.h>
+#include <math.h>
 #include <GL/gl.h>
 #include <glut.h>
 #include <shmemutex-dynamic.h>
 #include "getopt.h"
 
+GLfloat MAT_AMBIENT[]={0.45,0.45,0.45};
+GLfloat MAT_SPECULAR[]={1.0,1.0,1.0};
+GLfloat MAT_SHININESS[]={32.0};
+
+GLfloat WATER_COLOR[]={0.3,1.0,1.0};
+GLfloat WATER_AMBIENT[]={0.2,0.5,0.55};
+GLfloat WATER_SPECULAR[]={0.7,0.7,1.0};
+GLfloat WATER_SHININESS[]={64.0};
+GLfloat WATER_EMISSION[]={0.0,0.1,0.1};
 
 typedef struct{
-    long draw;
+    float draw;
     float viewing_angle;
     float focal_point[3];
-    float z_axis[3];
+    float opt_axis[3];
     float y_axis[3];
     float mat_diffuse[3];
-    float padding[2];
+    float water_width;
+    float padding;
 } GlViewDrawingPrams;
 
 class GlViewEnv{
@@ -79,32 +90,6 @@ public:
 GlViewEnv env;
 
 
-GLfloat LIGHT_POSITION[]={0.25,1.0,0.25,0.0};
-GLfloat LIGHT_DIFFUSE[]={1.0,1.0,1.0};
-GLfloat LIGHT_AMBIENT[]={0.25,0.25,0.25};
-GLfloat LIGHT_SPECULAR[]={1.0,1.0,1.0};
-
-GLfloat MAT_DIFFUSE[]={1.0,0.0,0.0};
-GLfloat MAT_AMBIENT[]={0.25,0.25,0.25};
-GLfloat MAT_SPECULAR[]={1.0,1.0,1.0};
-GLfloat MAT_SHININESS[]={32.0};
-
-
-void drawxyzaxis(double w,int col)
-{
-    glBegin(GL_LINES);
-    glColor3ub(col,0,0);
-    glVertex3d(-w,0,0);
-    glVertex3d(w,0,0);
-    glColor3ub(0,col,0);
-    glVertex3d(0,-w,0);
-    glVertex3d(0,w,0);
-    glColor3ub(0,0,col);
-    glVertex3d(0,0,-w);
-    glVertex3d(0,0,w);
-    glEnd();
-}
-
 
 void on_display(void)
 {
@@ -153,7 +138,6 @@ void on_display(void)
     // draw tea pod
     //
     if(env.drawing_params.draw){
-
         glPushMatrix();
 
         glMatrixMode(GL_PROJECTION);
@@ -166,19 +150,72 @@ void on_display(void)
         gluLookAt(env.drawing_params.focal_point[0],
                   env.drawing_params.focal_point[1],
                   env.drawing_params.focal_point[2],
-                  env.drawing_params.z_axis[0],
-                  env.drawing_params.z_axis[1],
-                  env.drawing_params.z_axis[2],
+                  env.drawing_params.opt_axis[0],
+                  env.drawing_params.opt_axis[1],
+                  env.drawing_params.opt_axis[2],
                   env.drawing_params.y_axis[0],
                   env.drawing_params.y_axis[1],
                   env.drawing_params.y_axis[2]);
 
-        //drawxyzaxis(120.0,.75);
+        
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+
         glMaterialfv(GL_FRONT,GL_DIFFUSE,env.drawing_params.mat_diffuse);
         glMaterialfv(GL_FRONT,GL_AMBIENT,MAT_AMBIENT);
         glMaterialfv(GL_FRONT,GL_SPECULAR,MAT_SPECULAR);
         glMaterialfv(GL_FRONT,GL_SHININESS,MAT_SHININESS);
         glutSolidTeapot(20.0);
+
+
+        //
+        // an good feature :)
+        //
+        if(env.drawing_params.water_width>0.0){
+
+            //
+            // move to outlet
+            //
+            glTranslated(32.5,9.0,0.0);
+
+            glPushMatrix();
+
+            GLUquadricObj *quad=gluNewQuadric();
+            gluQuadricDrawStyle(quad,GLU_FILL);
+            gluQuadricNormals(quad,GLU_SMOOTH);
+            
+            
+            glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,WATER_COLOR);
+            glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,WATER_AMBIENT);
+            glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,WATER_SPECULAR);
+            glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,WATER_SHININESS);
+            glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,WATER_EMISSION);
+            
+            //
+            // rotate same direction as camera Y axis.
+            //
+            GLfloat rot[16]={1.0,0.0,0.0,0.0,
+                             0.0,1.0,0.0,0.0,
+                             0.0,0.0,1.0,0.0,
+                             0.0,0.0,0.0,1.0};
+            rot[8]=-env.drawing_params.y_axis[0];
+            rot[9]=-env.drawing_params.y_axis[1];
+            rot[10]=-env.drawing_params.y_axis[2];
+            glMultMatrixf(rot);
+
+            //
+            // show water
+            //
+            gluCylinder(quad,
+                        env.drawing_params.water_width,
+                        env.drawing_params.water_width,
+                        500,128,1);
+            
+            gluDeleteQuadric(quad);
+            glPopMatrix();
+        }
+        
         
         glPopMatrix();
     }
@@ -274,7 +311,6 @@ int main(int argc, char **argv)
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
 
-    glFrontFace(GL_CW);
     glEnable(GL_AUTO_NORMAL);
     glEnable(GL_NORMALIZE);
     glEnable(GL_DEPTH_TEST);
