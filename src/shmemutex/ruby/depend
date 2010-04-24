@@ -1,0 +1,4 @@
+../shmemutex_core.o: ../shmemutex_core.cpp
+	cd ../ && $(MAKE) shmemutex_core.o
+
+shmemutex_ruby.o: shmemutex_ruby.cpp

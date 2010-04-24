@@ -18,6 +18,13 @@ Rim is Ruby IMage processing library for Cygwin.
 ** Windows SDK v7
 ** ewclib
 
+= Build and Install
+
+To be written.
+
+You could build me, If you lucky.
+
+
 = Copying
 
 Copyright (c) 2010 NISHI Takao <zophos@koka-in.org> All rights reserved.
@@ -28,8 +35,10 @@ You can redistribute it and/or modify it under the terms of Ruby's licence.
 Comments, suggestions, patches and beers are welcome.
 
 
+src/ewclib_dll/ewclib.h is written by I.N.
+http://www.geocities.jp/in_subaru/ewclib/
+
 src/ext/process/imura-naist-labeling.h originates in IMURA
 Masataka's "Labeling.h"
-
 http://oshiro.bpe.es.osaka-u.ac.jp/people/staff/imura/products/labeling
 

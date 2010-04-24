@@ -1,0 +1,19 @@
+LIBRARY ewclib
+EXPORTS
+	EWCDLL_Open @1
+	EWCDLL_Close @2
+	EWCDLL_GetCamera @3
+	EWCDLL_GetBufferSize @4
+	EWCDLL_GetImage @5
+	EWCDLL_IsCaptured @6
+	EWCDLL_time @7
+	EWCDLL_SetBuffer @8
+	EWCDLL_GetBuffer @9
+	EWCDLL_GetValue @10
+	EWCDLL_SetValue @11
+	EWCDLL_SetDefault @12
+	EWCDLL_SetAuto @13
+	EWCDLL_GetLastMessage @14
+	EWCDLL_PropertyPage @15
+
+VERSION 1.8

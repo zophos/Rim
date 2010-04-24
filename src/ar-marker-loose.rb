@@ -1,47 +1,26 @@
 #
 # ar-marker-loose.rb
 #
-class Edge
-    def initialize(id,p1,p2)
-        @id=id
-        @p1=p1
-        @p2=p2
-
-        @vec=p2-p1
-        @vec.div!(NMath.sqrt(@vec**2))
-    end
-    attr_reader :id,:p1,:p2,:vec
-
-    def distance(other)
-        1.0-self.cos(other)
-        #_heron(@p1,@p2,other.p2)+_heron(@p1,other.p1,other.p2)
-
-        #l1=(@p1-other.p1)**2
-	#l2=(@p2-other.p2)**2
-
-        #[l1,l2].sort.last
-    end
-
-    def _heron(p1,p2,p3)
-        a=p2-p1
-        b=p3-p2
-        c=p1-p3
-
-        a=NMath.sqrt(a**2)
-        b=NMath.sqrt(b**2)
-        c=NMath.sqrt(c**2)
-
-        s=(a+b+c)/2.0
-
-        NMath.sqrt(s*(s-a)*(s-b)*(s-c))
-    end
-
-    def cos(other)
-        @vec*other.vec
-    end
-end
-
 class Marker
+    class Edge
+        def initialize(id,p1,p2)
+            @id=id
+            @p1=p1
+            @p2=p2
+            
+            @vec=NVector.float(4)
+            @vec[0..1]=@p1
+            @vec[2..3]=@p2-@p1
+            @vec.div!(NMath.sqrt(@vec**2))
+            
+        end
+        attr_reader :id,:p1,:p2,:vec
+        
+        def distance(other)
+            @vec*other.vec
+        end
+    end
+
     @@seq=0
 
     #
@@ -55,22 +34,22 @@ class Marker
         r1=m1.base_edge_candidates(m2)
         r2=m2.base_edge_candidates(m1)
         
-        min_pair=nil
-        min_dist=nil
+        max_pair=nil
+        max_dist=nil
         
         r1.each{|e|
             r2.each{|f|
                 d=e.distance(f)
                 
-                if(!min_dist || min_dist>d)
-                    min_dist=d
-                    min_pair=[e,f]
+                if(!max_dist || max_dist<d)
+                    max_dist=d
+                    max_pair=[e,f]
                 end
             }
         }
 
-        m1.remap(min_pair[0])
-        m2.remap(min_pair[1])
+        m1.remap(max_pair[0])
+        m2.remap(max_pair[1])
     end
 
     def initialize(id,vertex,gray,bin,fill,t1,t2,warp)

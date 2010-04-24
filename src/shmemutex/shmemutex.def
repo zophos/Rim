@@ -1,0 +1,17 @@
+LIBRARY shmemutex
+EXPORTS
+	shmemutex_open @1
+	shmemutex_close @2
+	shmemutex_map_handle @3
+	shmemutex_mtx_handle @4
+	shmemutex_map_size @5
+	shmemutex_name @6
+	shmemutex_map_name @7
+	shmemutex_mtx_name @8
+	shmemutex_map_addr @9
+	shmemutex_lock @10
+	shmemutex_unlock @11
+	shmemutex_write @12
+	shmemutex_read @13
+
+VERSION 0.1

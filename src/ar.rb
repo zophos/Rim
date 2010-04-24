@@ -146,31 +146,6 @@ class GlCmd<NArray
 end
 
 
-class CheckPoint
-    def initialize
-        @stack=[]
-    end
-
-    def start(t=Time.now)
-        @stack.clear
-        @stack.push(t.to_f)
-
-        t
-    end
-
-    def pass
-        t=Time.now
-        @stack.push(t.to_f)
-
-        t
-    end
-
-    def dump
-        @stack.inspect
-    end
-end
-
-
 #
 # camera resolusion
 #

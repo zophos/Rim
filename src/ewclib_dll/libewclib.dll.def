@@ -1,0 +1,16 @@
+EXPORTS
+EWCDLL_Close@0
+EWCDLL_GetBuffer@8
+EWCDLL_GetBufferSize@4
+EWCDLL_GetCamera@0
+EWCDLL_GetImage@8
+EWCDLL_GetLastMessage@8
+EWCDLL_GetValue@12
+EWCDLL_IsCaptured@8
+EWCDLL_Open@16
+EWCDLL_PropertyPage@4
+EWCDLL_SetAuto@8
+EWCDLL_SetBuffer@8
+EWCDLL_SetDefault@8
+EWCDLL_SetValue@16
+EWCDLL_time@4
